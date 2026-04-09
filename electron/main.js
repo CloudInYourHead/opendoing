@@ -15,22 +15,64 @@ let store;
 const isDev = !app.isPackaged;
 
 function createWindow() {
+  console.log('=== createWindow called ===');
+  
   const appPath = app.getAppPath();
+  const userDataPath = app.getPath('userData');
   const iconPath = path.join(appPath, 'build', 'icon.png');
   const preloadPath = path.join(appPath, 'electron', 'preload.js');
   const htmlPath = isDev 
     ? 'http://localhost:3000' 
     : path.join(appPath, 'dist-react', 'index.html');
 
+  console.log('--- PATH DEBUG ---');
+  console.log('isDev:', isDev);
+  console.log('appPath:', appPath);
+  console.log('userDataPath:', userDataPath);
+  console.log('iconPath:', iconPath);
+  console.log('preloadPath:', preloadPath);
+  console.log('htmlPath:', htmlPath);
+
+  console.log('--- FILE CHECKS ---');
+  console.log('iconPath exists:', fs.existsSync(iconPath));
+  console.log('preloadPath exists:', fs.existsSync(preloadPath));
+  console.log('htmlPath exists:', fs.existsSync(htmlPath));
+
+  // List directory contents
+  try {
+    console.log('--- appPath contents ---');
+    const appFiles = fs.readdirSync(appPath);
+    console.log('appPath files:', appFiles.slice(0, 30));
+    
+    if (!isDev) {
+      const distReactPath = path.join(appPath, 'dist-react');
+      console.log('distReactPath:', distReactPath);
+      if (fs.existsSync(distReactPath)) {
+        const distFiles = fs.readdirSync(distReactPath);
+        console.log('dist-react files:', distFiles);
+      } else {
+        console.log('dist-react folder does NOT exist!');
+      }
+    }
+  } catch (err) {
+    console.log('Directory read error:', err.message);
+  }
+
   let icon;
   try {
     if (fs.existsSync(iconPath)) {
       icon = nativeImage.createFromPath(iconPath);
+      console.log('Icon loaded successfully');
+    } else {
+      icon = nativeImage.createEmpty();
+      console.log('Icon not found, using empty');
     }
   } catch (err) {
-    console.log('Icon not found, using empty icon');
+    icon = nativeImage.createEmpty();
+    console.log('Icon load error:', err.message);
   }
 
+  console.log('Creating BrowserWindow...');
   mainWindow = new BrowserWindow({
     width: 400,
     height: 500,
@@ -45,24 +87,34 @@ function createWindow() {
     }
   });
 
-  if (isDev) {
-    mainWindow.loadURL(htmlPath);
-  } else {
-    console.log('Loading production HTML from:', htmlPath);
-    mainWindow.loadFile(htmlPath);
-  }
+  mainWindow.webContents.on('crashed', () => {
+    console.error('!!! WINDOW CRASHED !!!');
+  });
+
+  mainWindow.webContents.on('render-process-gone', (event, details) => {
+    console.error('!!! RENDER PROCESS GONE !!!:', details);
+  });
 
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDesc) => {
-    console.error('Failed to load:', errorCode, errorDesc);
+    console.error('!!! FAILED TO LOAD !!!:', errorCode, errorDesc);
   });
 
   mainWindow.webContents.on('did-finish-load', () => {
-    console.log('Window finished loading successfully');
+    console.log('=== Window finished loading successfully ===');
   });
 
   mainWindow.webContents.on('console-message', (event, level, message) => {
     console.log('Renderer:', message);
   });
+
+  if (isDev) {
+    console.log('Loading dev URL:', htmlPath);
+    mainWindow.loadURL(htmlPath);
+  } else {
+    console.log('Loading production file:', htmlPath);
+    mainWindow.loadFile(htmlPath);
+  }
+  console.log('=== createWindow complete ===');
 
   mainWindow.on('close', (event) => {
     if (!app.isQuitting) {

@@ -1,5 +1,6 @@
 const { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, nativeImage, clipboard } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const Store = require('electron-store');
 const Database = require('./database');
 
@@ -14,11 +15,21 @@ let store;
 const isDev = !app.isPackaged;
 
 function createWindow() {
-  const iconPath = isDev 
-    ? path.join(__dirname, '../build/icon.png')
-    : path.join(__dirname, '../build/icon.png');
+  const appPath = app.getAppPath();
+  const iconPath = path.join(appPath, 'build', 'icon.png');
+  const preloadPath = path.join(appPath, 'electron', 'preload.js');
+  const htmlPath = isDev 
+    ? 'http://localhost:3000' 
+    : path.join(appPath, 'dist-react', 'index.html');
 
-  const icon = nativeImage.createFromPath(iconPath);
+  let icon;
+  try {
+    if (fs.existsSync(iconPath)) {
+      icon = nativeImage.createFromPath(iconPath);
+    }
+  } catch (err) {
+    console.log('Icon not found, using empty icon');
+  }
 
   mainWindow = new BrowserWindow({
     width: 400,
@@ -28,16 +39,16 @@ function createWindow() {
     resizable: true,
     icon: icon,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: preloadPath,
       contextIsolation: true,
       nodeIntegration: false
     }
   });
 
   if (isDev) {
-    mainWindow.loadURL('http://localhost:3000');
+    mainWindow.loadURL(htmlPath);
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist-react/index.html'));
+    mainWindow.loadFile(htmlPath);
   }
 
   mainWindow.on('close', (event) => {
@@ -49,11 +60,20 @@ function createWindow() {
 }
 
 function createTray() {
-  const iconPath = isDev 
-    ? path.join(__dirname, '../build/icon.png')
-    : path.join(__dirname, '../build/icon.png');
+  const appPath = app.getAppPath();
+  const iconPath = path.join(appPath, 'build', 'icon.png');
 
-  const icon = nativeImage.createFromPath(iconPath);
+  let icon;
+  try {
+    if (fs.existsSync(iconPath)) {
+      icon = nativeImage.createFromPath(iconPath);
+    } else {
+      icon = nativeImage.createEmpty();
+    }
+  } catch (err) {
+    icon = nativeImage.createEmpty();
+  }
+
   tray = new Tray(icon);
   
   const contextMenu = Menu.buildFromTemplate([

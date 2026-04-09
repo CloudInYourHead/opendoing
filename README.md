@@ -164,4 +164,4 @@ MIT License - See LICENSE file for details
 
 ## Author
 
-Built with [OpenCode](https://opencode.ai) using the Big Pickle model.
+me, lmao

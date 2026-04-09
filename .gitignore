@@ -1,13 +1,44 @@
+# Dependencies
 node_modules/
+
+# Build outputs
 dist/
 dist-react/
+electron/dist/
+
+# Logs
 *.log
-.DS_Store
-*.local
+logs/
+
+# Environment
 .env
 .env.local
+.env.*.local
+
+# IDE
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Database files
 *.db
 *.db-shm
 *.db-wal
+
+# Test files
+test.txt
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# App data (created at runtime)
+# %APPDATA%\clipboard-history-manager\

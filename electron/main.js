@@ -34,10 +34,10 @@ function createWindow() {
   const thisDir = __dirname;
   log('__dirname: ' + thisDir);
   
-  // For packaged apps with extraResources:
+  // For packaged apps with files array:
   // electron/ is at: resources/app/electron/
   // build/ is at: resources/app/build/
-  // dist-react/ is at: resources/dist-react/ (via extraResources)
+  // dist-react/ is at: resources/app/dist-react/ (in files array)
   
   let iconPath, preloadPath, htmlPath;
   
@@ -46,13 +46,10 @@ function createWindow() {
     preloadPath = path.join(__dirname, 'preload.js');
     htmlPath = 'http://localhost:3000';
   } else {
-    // In production with extraResources, dist-react is in process.resourcesPath
-    const resourcesPath = process.resourcesPath;
-    log('resourcesPath: ' + resourcesPath);
-    
+    // In production, dist-react is in the app folder alongside electron/
     iconPath = path.join(__dirname, '../build/icon.png');
     preloadPath = path.join(__dirname, 'preload.js');
-    htmlPath = path.join(resourcesPath, 'dist-react', 'index.html');
+    htmlPath = path.join(__dirname, '../dist-react/index.html');
   }
 
   log('--- PATH DEBUG ---');
@@ -73,20 +70,14 @@ function createWindow() {
     const parentFiles = fs.readdirSync(parentDir);
     log('parentDir files: ' + JSON.stringify(parentFiles));
     
-    // Check resources path for extraResources
-    if (!isDev) {
-      const resourcesPath = process.resourcesPath;
-      log('resourcesPath: ' + resourcesPath);
-      if (fs.existsSync(resourcesPath)) {
-        const resourcesFiles = fs.readdirSync(resourcesPath);
-        log('resourcesPath files: ' + JSON.stringify(resourcesFiles));
-        
-        const distReactPath = path.join(resourcesPath, 'dist-react');
-        if (fs.existsSync(distReactPath)) {
-          const distReactFiles = fs.readdirSync(distReactPath);
-          log('dist-react files: ' + JSON.stringify(distReactFiles));
-        }
-      }
+    // Check dist-react folder
+    const distReactPath = path.join(parentDir, 'dist-react');
+    log('distReactPath: ' + distReactPath);
+    if (fs.existsSync(distReactPath)) {
+      const distReactFiles = fs.readdirSync(distReactPath);
+      log('dist-react files: ' + JSON.stringify(distReactFiles));
+    } else {
+      log('dist-react folder NOT FOUND');
     }
   } catch (err) {
     log('Directory error: ' + err.message);

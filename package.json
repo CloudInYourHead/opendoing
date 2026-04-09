@@ -26,7 +26,7 @@
     ],
     "asar": false,
     "win": {
-      "target": "portable",
+      "target": "dir",
       "icon": "build/icon.png"
     }
   },

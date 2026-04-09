@@ -48,8 +48,21 @@ function createWindow() {
   if (isDev) {
     mainWindow.loadURL(htmlPath);
   } else {
+    console.log('Loading production HTML from:', htmlPath);
     mainWindow.loadFile(htmlPath);
   }
+
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDesc) => {
+    console.error('Failed to load:', errorCode, errorDesc);
+  });
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    console.log('Window finished loading successfully');
+  });
+
+  mainWindow.webContents.on('console-message', (event, level, message) => {
+    console.log('Renderer:', message);
+  });
 
   mainWindow.on('close', (event) => {
     if (!app.isQuitting) {
@@ -153,6 +166,10 @@ function cleanupOldClips() {
 }
 
 app.whenReady().then(async () => {
+  console.log('App ready, initializing...');
+  console.log('isDev:', isDev);
+  console.log('App path:', app.getAppPath());
+  
   store = new Store();
   
   const savedHotkey = store.get('hotkey', 'Control+Shift+V');
@@ -160,10 +177,14 @@ app.whenReady().then(async () => {
 
   db = new Database();
   await db.init();
+  console.log('Database initialized');
+  
   createWindow();
+  console.log('Window created');
   createTray();
   startClipboardPolling();
   updateGlobalShortcut(currentHotkey);
+  console.log('App initialization complete');
 
   setInterval(cleanupOldClips, 3600000);
 

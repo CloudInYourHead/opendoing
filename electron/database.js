@@ -1,18 +1,29 @@
-const Database = require('better-sqlite3');
+const initSqlJs = require('sql.js');
 const path = require('path');
+const fs = require('fs');
 const { app } = require('electron');
 
 class ClipDatabase {
   constructor() {
-    const userDataPath = app.getPath('userData');
-    const dbPath = path.join(userDataPath, 'clips.db');
-    
-    this.db = new Database(dbPath);
-    this.init();
+    this.db = null;
+    this.dbPath = path.join(app.getPath('userData'), 'clips.db');
   }
 
-  init() {
-    this.db.exec(`
+  async init() {
+    const SQL = await initSqlJs();
+    
+    try {
+      if (fs.existsSync(this.dbPath)) {
+        const buffer = fs.readFileSync(this.dbPath);
+        this.db = new SQL.Database(buffer);
+      } else {
+        this.db = new SQL.Database();
+      }
+    } catch (err) {
+      this.db = new SQL.Database();
+    }
+
+    this.db.run(`
       CREATE TABLE IF NOT EXISTS clips (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         content TEXT NOT NULL,
@@ -21,69 +32,90 @@ class ClipDatabase {
       )
     `);
 
-    this.db.exec(`
-      CREATE INDEX IF NOT EXISTS idx_timestamp ON clips(timestamp DESC)
-    `);
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_timestamp ON clips(timestamp DESC)`);
+  }
+
+  save() {
+    if (this.db) {
+      const data = this.db.export();
+      const buffer = Buffer.from(data);
+      fs.writeFileSync(this.dbPath, buffer);
+    }
   }
 
   addClip(content, type = 'text') {
-    const existing = this.db.prepare(
-      'SELECT id FROM clips WHERE content = ? ORDER BY timestamp DESC LIMIT 1'
-    ).get(content);
+    const maxLength = 10000;
+    const truncated = content.length > maxLength 
+      ? content.substring(0, maxLength) + '...' 
+      : content;
 
-    if (existing) {
-      this.db.prepare(
-        'UPDATE clips SET timestamp = CURRENT_TIMESTAMP WHERE id = ?'
-      ).run(existing.id);
-      return existing.id;
+    const existing = this.db.exec(
+      `SELECT id FROM clips WHERE content = '${this.escape(truncated)}' ORDER BY timestamp DESC LIMIT 1`
+    );
+
+    if (existing.length > 0 && existing[0].values.length > 0) {
+      const id = existing[0].values[0][0];
+      this.db.run(`UPDATE clips SET timestamp = datetime('now') WHERE id = ${id}`);
+      this.save();
+      return id;
     }
 
-    const maxClips = 100;
-    const count = this.db.prepare('SELECT COUNT(*) as count FROM clips').get();
-    
-    if (count.count >= maxClips) {
-      this.db.prepare(`
-        DELETE FROM clips WHERE id IN (
-          SELECT id FROM clips ORDER BY timestamp ASC LIMIT ?
-        )
-      `).run(count.count - maxClips + 1);
+    const count = this.db.exec('SELECT COUNT(*) FROM clips');
+    const numClips = count[0].values[0][0];
+
+    if (numClips >= 100) {
+      const deleteCount = numClips - 99;
+      this.db.run(`DELETE FROM clips WHERE id IN (SELECT id FROM clips ORDER BY timestamp ASC LIMIT ${deleteCount})`);
     }
 
-    const result = this.db.prepare(
-      'INSERT INTO clips (content, type, timestamp) VALUES (?, ?, CURRENT_TIMESTAMP)'
-    ).run(content, type);
+    this.db.run(`INSERT INTO clips (content, type, timestamp) VALUES ('${this.escape(truncated)}', '${type}', datetime('now'))`);
+    this.save();
 
-    return result.lastInsertRowid;
+    const result = this.db.exec('SELECT last_insert_rowid()');
+    return result[0].values[0][0];
+  }
+
+  escape(str) {
+    return str.replace(/'/g, "''");
   }
 
   getClips(limit = 100) {
-    return this.db.prepare(
-      'SELECT * FROM clips ORDER BY timestamp DESC LIMIT ?'
-    ).all(limit);
+    const result = this.db.exec(`SELECT * FROM clips ORDER BY timestamp DESC LIMIT ${limit}`);
+    if (result.length === 0) return [];
+    
+    const columns = result[0].columns;
+    return result[0].values.map(row => {
+      const obj = {};
+      columns.forEach((col, i) => obj[col] = row[i]);
+      return obj;
+    });
   }
 
   searchClips(query) {
-    return this.db.prepare(
-      'SELECT * FROM clips WHERE content LIKE ? ORDER BY timestamp DESC LIMIT 100'
-    ).all(`%${query}%`);
+    const result = this.db.exec(`SELECT * FROM clips WHERE content LIKE '%${this.escape(query)}%' ORDER BY timestamp DESC LIMIT 100`);
+    if (result.length === 0) return [];
+    
+    const columns = result[0].columns;
+    return result[0].values.map(row => {
+      const obj = {};
+      columns.forEach((col, i) => obj[col] = row[i]);
+      return obj;
+    });
   }
 
   deleteClip(id) {
-    return this.db.prepare('DELETE FROM clips WHERE id = ?').run(id);
+    this.db.run(`DELETE FROM clips WHERE id = ${id}`);
+    this.save();
   }
 
   clearAll() {
-    return this.db.prepare('DELETE FROM clips').run();
+    this.db.run('DELETE FROM clips');
+    this.save();
   }
 
   cleanupOldClips(days = 7) {
-    return this.db.prepare(
-      'DELETE FROM clips WHERE timestamp < datetime("now", "-" || ? || " days")'
-    ).run(days);
-  }
-
-  close() {
-    this.db.close();
+    this.db.run(`DELETE FROM clips WHERE timestamp < datetime('now', '-${days} days')`);
+    this.save();
   }
 }
 

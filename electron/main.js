@@ -101,8 +101,9 @@ function cleanupOldClips() {
   db.cleanupOldClips(7);
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   db = new Database();
+  await db.init();
   createWindow();
   createTray();
   startClipboardPolling();

@@ -1,5 +1,6 @@
 const { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, nativeImage, clipboard } = require('electron');
 const path = require('path');
+const Store = require('electron-store');
 const Database = require('./database');
 
 let mainWindow;
@@ -7,16 +8,25 @@ let tray;
 let db;
 let lastClipboard = '';
 let pollInterval;
+let currentHotkey = 'Control+Shift+V';
+let store;
 
 const isDev = !app.isPackaged;
 
 function createWindow() {
+  const iconPath = isDev 
+    ? path.join(__dirname, '../build/icon.png')
+    : path.join(__dirname, '../build/icon.png');
+
+  const icon = nativeImage.createFromPath(iconPath);
+
   mainWindow = new BrowserWindow({
     width: 400,
     height: 500,
     show: false,
     frame: true,
     resizable: true,
+    icon: icon,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -39,7 +49,11 @@ function createWindow() {
 }
 
 function createTray() {
-  const icon = nativeImage.createEmpty();
+  const iconPath = isDev 
+    ? path.join(__dirname, '../build/icon.png')
+    : path.join(__dirname, '../build/icon.png');
+
+  const icon = nativeImage.createFromPath(iconPath);
   tray = new Tray(icon);
   
   const contextMenu = Menu.buildFromTemplate([
@@ -83,17 +97,35 @@ function startClipboardPolling() {
   }, 500);
 }
 
-function registerGlobalShortcut() {
-  globalShortcut.register('CommandOrControl+Shift+V', () => {
-    if (mainWindow) {
-      if (mainWindow.isVisible()) {
-        mainWindow.hide();
-      } else {
-        mainWindow.show();
-        mainWindow.focus();
+function updateGlobalShortcut(newHotkey) {
+  globalShortcut.unregisterAll();
+  currentHotkey = newHotkey;
+  
+  try {
+    globalShortcut.register(newHotkey, () => {
+      if (mainWindow) {
+        if (mainWindow.isVisible()) {
+          mainWindow.hide();
+        } else {
+          mainWindow.show();
+          mainWindow.focus();
+        }
       }
-    }
-  });
+    });
+    console.log(`Hotkey registered: ${newHotkey}`);
+  } catch (err) {
+    console.error('Failed to register hotkey:', err);
+    globalShortcut.register('Control+Shift+V', () => {
+      if (mainWindow) {
+        if (mainWindow.isVisible()) {
+          mainWindow.hide();
+        } else {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      }
+    });
+  }
 }
 
 function cleanupOldClips() {
@@ -101,12 +133,17 @@ function cleanupOldClips() {
 }
 
 app.whenReady().then(async () => {
+  store = new Store();
+  
+  const savedHotkey = store.get('hotkey', 'Control+Shift+V');
+  currentHotkey = savedHotkey;
+
   db = new Database();
   await db.init();
   createWindow();
   createTray();
   startClipboardPolling();
-  registerGlobalShortcut();
+  updateGlobalShortcut(currentHotkey);
 
   setInterval(cleanupOldClips, 3600000);
 
@@ -148,4 +185,14 @@ ipcMain.handle('copy-clip', async (event, content) => {
 
 ipcMain.handle('search-clips', async (event, query) => {
   return db.searchClips(query);
+});
+
+ipcMain.handle('get-hotkey', async () => {
+  return store.get('hotkey', 'Control+Shift+V');
+});
+
+ipcMain.handle('set-hotkey', async (event, hotkey) => {
+  store.set('hotkey', hotkey);
+  updateGlobalShortcut(hotkey);
+  return true;
 });

@@ -6,6 +6,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   clearAll: () => ipcRenderer.invoke('clear-all'),
   copyClip: (content) => ipcRenderer.invoke('copy-clip', content),
   searchClips: (query) => ipcRenderer.invoke('search-clips', query),
+  getHotkey: () => ipcRenderer.invoke('get-hotkey'),
+  setHotkey: (hotkey) => ipcRenderer.invoke('set-hotkey', hotkey),
   onClipsUpdated: (callback) => {
     ipcRenderer.on('clips-updated', callback);
     return () => ipcRenderer.removeListener('clips-updated', callback);

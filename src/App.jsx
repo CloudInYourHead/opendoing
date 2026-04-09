@@ -1,14 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import ClipList from './components/ClipList';
 import SearchBar from './components/SearchBar';
+import Settings from './components/Settings';
 
 function App() {
   const [clips, setClips] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
+  const [hotkey, setHotkey] = useState('Control+Shift+V');
 
   useEffect(() => {
     loadClips();
+    loadHotkey();
 
     const unsubscribe = window.electronAPI.onClipsUpdated(() => {
       loadClips();
@@ -16,6 +20,17 @@ function App() {
 
     return () => unsubscribe();
   }, []);
+
+  const loadHotkey = async () => {
+    try {
+      const savedHotkey = await window.electronAPI.getHotkey();
+      if (savedHotkey) {
+        setHotkey(savedHotkey);
+      }
+    } catch (err) {
+      console.error('Failed to load hotkey:', err);
+    }
+  };
 
   const loadClips = async () => {
     try {
@@ -70,13 +85,22 @@ function App() {
     }
   };
 
+  const handleHotkeyChange = (newHotkey) => {
+    setHotkey(newHotkey);
+  };
+
   return (
     <div className="app">
       <header className="header">
         <h1>Clipboard History</h1>
-        <button className="clear-btn" onClick={handleClearAll}>
-          Clear All
-        </button>
+        <div className="header-actions">
+          <button className="settings-btn" onClick={() => setShowSettings(true)}>
+            Settings
+          </button>
+          <button className="clear-btn" onClick={handleClearAll}>
+            Clear All
+          </button>
+        </div>
       </header>
       <SearchBar onSearch={handleSearch} />
       {loading ? (
@@ -88,6 +112,12 @@ function App() {
           onDelete={handleDelete} 
         />
       )}
+      <Settings 
+        isOpen={showSettings} 
+        onClose={() => setShowSettings(false)}
+        hotkey={hotkey}
+        onHotkeyChange={handleHotkeyChange}
+      />
     </div>
   );
 }

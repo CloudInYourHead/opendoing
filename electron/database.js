@@ -1,46 +1,18 @@
-const initSqlJs = require('sql.js');
-const path = require('path');
-const fs = require('fs');
-const { app } = require('electron');
+const Store = require('electron-store');
 
 class ClipDatabase {
   constructor() {
-    this.db = null;
-    this.dbPath = path.join(app.getPath('userData'), 'clips.db');
-  }
-
-  async init() {
-    const SQL = await initSqlJs();
-    
-    try {
-      if (fs.existsSync(this.dbPath)) {
-        const buffer = fs.readFileSync(this.dbPath);
-        this.db = new SQL.Database(buffer);
-      } else {
-        this.db = new SQL.Database();
+    this.store = new Store({
+      name: 'clips',
+      defaults: {
+        clips: [],
+        nextId: 1
       }
-    } catch (err) {
-      this.db = new SQL.Database();
-    }
-
-    this.db.run(`
-      CREATE TABLE IF NOT EXISTS clips (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        content TEXT NOT NULL,
-        type TEXT DEFAULT 'text',
-        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    this.db.run(`CREATE INDEX IF NOT EXISTS idx_timestamp ON clips(timestamp DESC)`);
+    });
   }
 
-  save() {
-    if (this.db) {
-      const data = this.db.export();
-      const buffer = Buffer.from(data);
-      fs.writeFileSync(this.dbPath, buffer);
-    }
+  init() {
+    return Promise.resolve();
   }
 
   addClip(content, type = 'text') {
@@ -49,73 +21,68 @@ class ClipDatabase {
       ? content.substring(0, maxLength) + '...' 
       : content;
 
-    const existing = this.db.exec(
-      `SELECT id FROM clips WHERE content = '${this.escape(truncated)}' ORDER BY timestamp DESC LIMIT 1`
-    );
+    const clips = this.store.get('clips', []);
+    const nextId = this.store.get('nextId', 1);
 
-    if (existing.length > 0 && existing[0].values.length > 0) {
-      const id = existing[0].values[0][0];
-      this.db.run(`UPDATE clips SET timestamp = datetime('now') WHERE id = ${id}`);
-      this.save();
-      return id;
+    const existingIndex = clips.findIndex(c => c.content === truncated);
+    if (existingIndex !== -1) {
+      clips[existingIndex].timestamp = new Date().toISOString();
+      this.store.set('clips', clips);
+      return clips[existingIndex].id;
     }
 
-    const count = this.db.exec('SELECT COUNT(*) FROM clips');
-    const numClips = count[0].values[0][0];
-
-    if (numClips >= 100) {
-      const deleteCount = numClips - 99;
-      this.db.run(`DELETE FROM clips WHERE id IN (SELECT id FROM clips ORDER BY timestamp ASC LIMIT ${deleteCount})`);
+    if (clips.length >= 100) {
+      clips.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      clips.shift();
     }
 
-    this.db.run(`INSERT INTO clips (content, type, timestamp) VALUES ('${this.escape(truncated)}', '${type}', datetime('now'))`);
-    this.save();
+    const newClip = {
+      id: nextId,
+      content: truncated,
+      type: type,
+      timestamp: new Date().toISOString()
+    };
 
-    const result = this.db.exec('SELECT last_insert_rowid()');
-    return result[0].values[0][0];
-  }
+    clips.push(newClip);
+    this.store.set('clips', clips);
+    this.store.set('nextId', nextId + 1);
 
-  escape(str) {
-    return str.replace(/'/g, "''");
+    return newClip.id;
   }
 
   getClips(limit = 100) {
-    const result = this.db.exec(`SELECT * FROM clips ORDER BY timestamp DESC LIMIT ${limit}`);
-    if (result.length === 0) return [];
-    
-    const columns = result[0].columns;
-    return result[0].values.map(row => {
-      const obj = {};
-      columns.forEach((col, i) => obj[col] = row[i]);
-      return obj;
-    });
+    const clips = this.store.get('clips', []);
+    return clips
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+      .slice(0, limit);
   }
 
   searchClips(query) {
-    const result = this.db.exec(`SELECT * FROM clips WHERE content LIKE '%${this.escape(query)}%' ORDER BY timestamp DESC LIMIT 100`);
-    if (result.length === 0) return [];
-    
-    const columns = result[0].columns;
-    return result[0].values.map(row => {
-      const obj = {};
-      columns.forEach((col, i) => obj[col] = row[i]);
-      return obj;
-    });
+    const clips = this.store.get('clips', []);
+    const lowerQuery = query.toLowerCase();
+    return clips
+      .filter(c => c.content.toLowerCase().includes(lowerQuery))
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+      .slice(0, 100);
   }
 
   deleteClip(id) {
-    this.db.run(`DELETE FROM clips WHERE id = ${id}`);
-    this.save();
+    const clips = this.store.get('clips', []);
+    const filtered = clips.filter(c => c.id !== id);
+    this.store.set('clips', filtered);
   }
 
   clearAll() {
-    this.db.run('DELETE FROM clips');
-    this.save();
+    this.store.set('clips', []);
   }
 
   cleanupOldClips(days = 7) {
-    this.db.run(`DELETE FROM clips WHERE timestamp < datetime('now', '-${days} days')`);
-    this.save();
+    const clips = this.store.get('clips', []);
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    
+    const filtered = clips.filter(c => new Date(c.timestamp) > cutoff);
+    this.store.set('clips', filtered);
   }
 }
 

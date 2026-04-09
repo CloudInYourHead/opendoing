@@ -39,7 +39,6 @@
     "wait-on": "^7.2.0"
   },
   "dependencies": {
-    "sql.js": "^1.10.0",
     "electron-store": "^8.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"

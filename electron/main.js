@@ -34,10 +34,10 @@ function createWindow() {
   const thisDir = __dirname;
   log('__dirname: ' + thisDir);
   
-  // For packaged apps, the structure is different
-  // electron/ folder is at: app.asar/electron/
-  // build/ folder is at: app.asar/build/
-  // dist-react/ is at: app.asar/dist-react/
+  // For packaged apps with extraResources:
+  // electron/ is at: resources/app/electron/
+  // build/ is at: resources/app/build/
+  // dist-react/ is at: resources/dist-react/ (via extraResources)
   
   let iconPath, preloadPath, htmlPath;
   
@@ -46,10 +46,13 @@ function createWindow() {
     preloadPath = path.join(__dirname, 'preload.js');
     htmlPath = 'http://localhost:3000';
   } else {
-    // In production, __dirname points to app.asar/electron/
+    // In production with extraResources, dist-react is in process.resourcesPath
+    const resourcesPath = process.resourcesPath;
+    log('resourcesPath: ' + resourcesPath);
+    
     iconPath = path.join(__dirname, '../build/icon.png');
     preloadPath = path.join(__dirname, 'preload.js');
-    htmlPath = path.join(__dirname, '../dist-react/index.html');
+    htmlPath = path.join(resourcesPath, 'dist-react', 'index.html');
   }
 
   log('--- PATH DEBUG ---');
@@ -69,8 +72,24 @@ function createWindow() {
     log('parentDir: ' + parentDir);
     const parentFiles = fs.readdirSync(parentDir);
     log('parentDir files: ' + JSON.stringify(parentFiles));
+    
+    // Check resources path for extraResources
+    if (!isDev) {
+      const resourcesPath = process.resourcesPath;
+      log('resourcesPath: ' + resourcesPath);
+      if (fs.existsSync(resourcesPath)) {
+        const resourcesFiles = fs.readdirSync(resourcesPath);
+        log('resourcesPath files: ' + JSON.stringify(resourcesFiles));
+        
+        const distReactPath = path.join(resourcesPath, 'dist-react');
+        if (fs.existsSync(distReactPath)) {
+          const distReactFiles = fs.readdirSync(distReactPath);
+          log('dist-react files: ' + JSON.stringify(distReactFiles));
+        }
+      }
+    }
   } catch (err) {
-    log('parentDir error: ' + err.message);
+    log('Directory error: ' + err.message);
   }
 
   let icon;

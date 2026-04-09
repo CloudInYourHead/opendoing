@@ -18,9 +18,16 @@
       "output": "dist"
     },
     "files": [
-      "dist-react/**/*",
       "electron/**/*",
-      "build/**/*"
+      "build/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "dist-react",
+        "to": "dist-react",
+        "filter": ["**/*"]
+      }
     ],
     "asar": false,
     "win": {

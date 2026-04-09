@@ -22,6 +22,7 @@
       "electron/**/*",
       "build/**/*"
     ],
+    "asar": false,
     "win": {
       "target": "portable",
       "icon": "build/icon.png"

@@ -14,65 +14,80 @@ let store;
 
 const isDev = !app.isPackaged;
 
-function createWindow() {
-  console.log('=== createWindow called ===');
+function log(message) {
+  const timestamp = new Date().toISOString();
+  const logLine = `[${timestamp}] ${message}`;
+  console.log(logLine);
   
-  const appPath = app.getAppPath();
-  const userDataPath = app.getPath('userData');
-  const iconPath = path.join(appPath, 'build', 'icon.png');
-  const preloadPath = path.join(appPath, 'electron', 'preload.js');
-  const htmlPath = isDev 
-    ? 'http://localhost:3000' 
-    : path.join(appPath, 'dist-react', 'index.html');
-
-  console.log('--- PATH DEBUG ---');
-  console.log('isDev:', isDev);
-  console.log('appPath:', appPath);
-  console.log('userDataPath:', userDataPath);
-  console.log('iconPath:', iconPath);
-  console.log('preloadPath:', preloadPath);
-  console.log('htmlPath:', htmlPath);
-
-  console.log('--- FILE CHECKS ---');
-  console.log('iconPath exists:', fs.existsSync(iconPath));
-  console.log('preloadPath exists:', fs.existsSync(preloadPath));
-  console.log('htmlPath exists:', fs.existsSync(htmlPath));
-
-  // List directory contents
   try {
-    console.log('--- appPath contents ---');
-    const appFiles = fs.readdirSync(appPath);
-    console.log('appPath files:', appFiles.slice(0, 30));
-    
-    if (!isDev) {
-      const distReactPath = path.join(appPath, 'dist-react');
-      console.log('distReactPath:', distReactPath);
-      if (fs.existsSync(distReactPath)) {
-        const distFiles = fs.readdirSync(distReactPath);
-        console.log('dist-react files:', distFiles);
-      } else {
-        console.log('dist-react folder does NOT exist!');
-      }
-    }
+    const logPath = path.join(app.getPath('userData'), 'app.log');
+    fs.appendFileSync(logPath, logLine + '\n');
   } catch (err) {
-    console.log('Directory read error:', err.message);
+    // Ignore logging errors
+  }
+}
+
+function createWindow() {
+  log('=== createWindow called ===');
+  
+  // Use __dirname which works reliably in packaged apps
+  const thisDir = __dirname;
+  log('__dirname: ' + thisDir);
+  
+  // For packaged apps, the structure is different
+  // electron/ folder is at: app.asar/electron/
+  // build/ folder is at: app.asar/build/
+  // dist-react/ is at: app.asar/dist-react/
+  
+  let iconPath, preloadPath, htmlPath;
+  
+  if (isDev) {
+    iconPath = path.join(__dirname, '../build/icon.png');
+    preloadPath = path.join(__dirname, 'preload.js');
+    htmlPath = 'http://localhost:3000';
+  } else {
+    // In production, __dirname points to app.asar/electron/
+    iconPath = path.join(__dirname, '../build/icon.png');
+    preloadPath = path.join(__dirname, 'preload.js');
+    htmlPath = path.join(__dirname, '../dist-react/index.html');
+  }
+
+  log('--- PATH DEBUG ---');
+  log('isDev: ' + isDev);
+  log('iconPath: ' + iconPath);
+  log('preloadPath: ' + preloadPath);
+  log('htmlPath: ' + htmlPath);
+
+  // Check files
+  log('iconPath exists: ' + fs.existsSync(iconPath));
+  log('preloadPath exists: ' + fs.existsSync(preloadPath));
+  log('htmlPath exists: ' + fs.existsSync(htmlPath));
+
+  // List directory structure
+  try {
+    const parentDir = path.dirname(__dirname);
+    log('parentDir: ' + parentDir);
+    const parentFiles = fs.readdirSync(parentDir);
+    log('parentDir files: ' + JSON.stringify(parentFiles));
+  } catch (err) {
+    log('parentDir error: ' + err.message);
   }
 
   let icon;
   try {
     if (fs.existsSync(iconPath)) {
       icon = nativeImage.createFromPath(iconPath);
-      console.log('Icon loaded successfully');
+      log('Icon loaded successfully');
     } else {
       icon = nativeImage.createEmpty();
-      console.log('Icon not found, using empty');
+      log('Icon not found, using empty');
     }
   } catch (err) {
     icon = nativeImage.createEmpty();
-    console.log('Icon load error:', err.message);
+    log('Icon load error: ' + err.message);
   }
 
-  console.log('Creating BrowserWindow...');
+  log('Creating BrowserWindow...');
   mainWindow = new BrowserWindow({
     width: 400,
     height: 500,
@@ -88,45 +103,49 @@ function createWindow() {
   });
 
   mainWindow.webContents.on('crashed', () => {
-    console.error('!!! WINDOW CRASHED !!!');
+    log('!!! WINDOW CRASHED !!!');
   });
 
   mainWindow.webContents.on('render-process-gone', (event, details) => {
-    console.error('!!! RENDER PROCESS GONE !!!:', details);
+    log('!!! RENDER PROCESS GONE !!!: ' + JSON.stringify(details));
   });
 
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDesc) => {
-    console.error('!!! FAILED TO LOAD !!!:', errorCode, errorDesc);
+    log('!!! FAILED TO LOAD !!!: ' + errorCode + ' ' + errorDesc);
   });
 
   mainWindow.webContents.on('did-finish-load', () => {
-    console.log('=== Window finished loading successfully ===');
+    log('=== Window finished loading successfully ===');
   });
 
   mainWindow.webContents.on('console-message', (event, level, message) => {
-    console.log('Renderer:', message);
+    log('Renderer: ' + message);
   });
 
   if (isDev) {
-    console.log('Loading dev URL:', htmlPath);
+    log('Loading dev URL: ' + htmlPath);
     mainWindow.loadURL(htmlPath);
   } else {
-    console.log('Loading production file:', htmlPath);
+    log('Loading production file: ' + htmlPath);
     mainWindow.loadFile(htmlPath);
   }
-  console.log('=== createWindow complete ===');
-
-  mainWindow.on('close', (event) => {
-    if (!app.isQuitting) {
-      event.preventDefault();
-      mainWindow.hide();
-    }
+  
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+    log('Window shown');
   });
+  
+  log('=== createWindow complete ===');
 }
 
 function createTray() {
-  const appPath = app.getAppPath();
-  const iconPath = path.join(appPath, 'build', 'icon.png');
+  let iconPath;
+  
+  if (isDev) {
+    iconPath = path.join(__dirname, '../build/icon.png');
+  } else {
+    iconPath = path.join(__dirname, '../build/icon.png');
+  }
 
   let icon;
   try {
@@ -177,7 +196,7 @@ function startClipboardPolling() {
         }
       }
     } catch (err) {
-      console.error('Clipboard read error:', err);
+      log('Clipboard read error: ' + err.message);
     }
   }, 500);
 }
@@ -197,9 +216,9 @@ function updateGlobalShortcut(newHotkey) {
         }
       }
     });
-    console.log(`Hotkey registered: ${newHotkey}`);
+    log('Hotkey registered: ' + newHotkey);
   } catch (err) {
-    console.error('Failed to register hotkey:', err);
+    log('Failed to register hotkey: ' + err.message);
     globalShortcut.register('Control+Shift+V', () => {
       if (mainWindow) {
         if (mainWindow.isVisible()) {
@@ -218,9 +237,9 @@ function cleanupOldClips() {
 }
 
 app.whenReady().then(async () => {
-  console.log('App ready, initializing...');
-  console.log('isDev:', isDev);
-  console.log('App path:', app.getAppPath());
+  log('App ready, initializing...');
+  log('isDev: ' + isDev);
+  log('User data path: ' + app.getPath('userData'));
   
   store = new Store();
   
@@ -229,14 +248,12 @@ app.whenReady().then(async () => {
 
   db = new Database();
   await db.init();
-  console.log('Database initialized');
+  log('Database initialized');
   
   createWindow();
-  console.log('Window created');
   createTray();
   startClipboardPolling();
   updateGlobalShortcut(currentHotkey);
-  console.log('App initialization complete');
 
   setInterval(cleanupOldClips, 3600000);
 

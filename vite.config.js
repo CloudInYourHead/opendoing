@@ -5,8 +5,9 @@ import path from 'path';
 export default defineConfig({
   plugins: [react()],
   base: './',
+  root: '.',
   build: {
-    outDir: '../dist-react',
+    outDir: './electron/dist',
     emptyOutDir: true
   },
   server: {

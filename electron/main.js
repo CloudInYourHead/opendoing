@@ -46,10 +46,10 @@ function createWindow() {
     preloadPath = path.join(__dirname, 'preload.js');
     htmlPath = 'http://localhost:3000';
   } else {
-    // In production, dist-react is in the app folder alongside electron/
+    // In production, dist is inside electron folder alongside main.js
     iconPath = path.join(__dirname, '../build/icon.png');
     preloadPath = path.join(__dirname, 'preload.js');
-    htmlPath = path.join(__dirname, '../dist-react/index.html');
+    htmlPath = path.join(__dirname, 'dist/index.html');
   }
 
   log('--- PATH DEBUG ---');

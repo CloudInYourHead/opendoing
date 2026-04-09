@@ -18,8 +18,6 @@
       "output": "dist"
     },
     "files": [
-      "dist-react",
-      "dist-react/**/*",
       "electron/**/*",
       "build/**/*",
       "package.json"

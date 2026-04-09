@@ -1,6 +1,5 @@
-const { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, nativeImage } = require('electron');
+const { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, nativeImage, clipboard } = require('electron');
 const path = require('path');
-const clipboard = require('clipboardy');
 const Database = require('./database');
 
 let mainWindow;
@@ -64,7 +63,7 @@ function createTray() {
 function startClipboardPolling() {
   pollInterval = setInterval(() => {
     try {
-      const currentClipboard = clipboard.read();
+      const currentClipboard = clipboard.readText();
       
       if (currentClipboard && currentClipboard !== lastClipboard) {
         lastClipboard = currentClipboard;
@@ -143,7 +142,7 @@ ipcMain.handle('clear-all', async () => {
 
 ipcMain.handle('copy-clip', async (event, content) => {
   lastClipboard = content;
-  clipboard.write(content);
+  clipboard.writeText(content);
   return true;
 });
 

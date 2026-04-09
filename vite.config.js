@@ -5,7 +5,6 @@ import path from 'path';
 export default defineConfig({
   plugins: [react()],
   base: './',
-  root: 'public',
   build: {
     outDir: '../dist-react',
     emptyOutDir: true

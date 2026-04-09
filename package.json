@@ -1,0 +1,51 @@
+{
+  "name": "clipboard-history-manager",
+  "version": "1.0.0",
+  "description": "A clipboard history manager for Windows 11",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "concurrently \"npm run dev:react\" \"wait-on http://localhost:3000 && electron .\"",
+    "dev:react": "vite",
+    "build:react": "vite build",
+    "build": "npm run build:react && electron-builder",
+    "pack": "electron-builder --dir"
+  },
+  "build": {
+    "appId": "com.clipboard.history",
+    "productName": "Clipboard History Manager",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "public/**/*",
+      "dist-react/**/*",
+      "electron/**/*"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "keywords": ["clipboard", "electron", "windows"],
+  "author": "bo",
+  "license": "MIT",
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.2.1",
+    "concurrently": "^8.2.2",
+    "electron": "^28.1.0",
+    "electron-builder": "^24.9.1",
+    "vite": "^5.0.10",
+    "wait-on": "^7.2.0"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.2.2",
+    "clipboardy": "^3.0.0",
+    "electron-store": "^8.1.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  }
+}

@@ -23,12 +23,8 @@
       "build/**/*"
     ],
     "win": {
-      "target": "nsis",
+      "target": "portable",
       "icon": "build/icon.png"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
     }
   },
   "keywords": ["clipboard", "electron", "windows"],
